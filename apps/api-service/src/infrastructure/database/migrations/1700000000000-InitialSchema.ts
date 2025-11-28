@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner, Table, TableForeignKey } from 'typeorm';
+import { MigrationInterface, QueryRunner, Table } from 'typeorm';
 
 export class InitialSchema1700000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -171,113 +171,14 @@ export class InitialSchema1700000000000 implements MigrationInterface {
       }),
       true,
     );
-
-    // Создаем таблицу tables
-    await queryRunner.createTable(
-      new Table({
-        name: 'tables',
-        columns: [
-          {
-            name: 'id',
-            type: 'uuid',
-            isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
-          },
-          {
-            name: 'restaurant_id',
-            type: 'uuid',
-            isNullable: false,
-          },
-          {
-            name: 'capacity',
-            type: 'integer',
-            isNullable: false,
-          },
-          {
-            name: 'created_at',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-            isNullable: false,
-          },
-          {
-            name: 'updated_at',
-            type: 'timestamp',
-            default: 'CURRENT_TIMESTAMP',
-            isNullable: false,
-          },
-        ],
-        indices: [
-          {
-            name: 'IDX_tables_restaurant_id',
-            columnNames: ['restaurant_id'],
-          },
-        ],
-      }),
-      true,
-    );
-
-    // Создаем внешний ключ от bookings.table_id к tables.id
-    await queryRunner.createForeignKey(
-      'bookings',
-      new TableForeignKey({
-        columnNames: ['table_id'],
-        referencedTableName: 'tables',
-        referencedColumnNames: ['id'],
-        onDelete: 'SET NULL',
-      }),
-    );
-
-    // Добавляем тестовые данные для демонстрации
-    // Ресторан 1: "123e4567-e89b-12d3-a456-426614174000" (используется в примерах)
-    await queryRunner.query(`
-      INSERT INTO tables (restaurant_id, capacity) VALUES
-        ('123e4567-e89b-12d3-a456-426614174000', 2),
-        ('123e4567-e89b-12d3-a456-426614174000', 2),
-        ('123e4567-e89b-12d3-a456-426614174000', 4),
-        ('123e4567-e89b-12d3-a456-426614174000', 4),
-        ('123e4567-e89b-12d3-a456-426614174000', 4),
-        ('123e4567-e89b-12d3-a456-426614174000', 4),
-        ('123e4567-e89b-12d3-a456-426614174000', 6),
-        ('123e4567-e89b-12d3-a456-426614174000', 6),
-        ('123e4567-e89b-12d3-a456-426614174000', 8),
-        ('123e4567-e89b-12d3-a456-426614174000', 8);
-    `);
-
-    // Ресторан 2: для тестирования разных сценариев
-    await queryRunner.query(`
-      INSERT INTO tables (restaurant_id, capacity) VALUES
-        ('223e4567-e89b-12d3-a456-426614174001', 4),
-        ('223e4567-e89b-12d3-a456-426614174001', 4),
-        ('223e4567-e89b-12d3-a456-426614174001', 6),
-        ('223e4567-e89b-12d3-a456-426614174001', 6);
-    `);
-
-    // Ресторан 3: маленький ресторан для тестирования ограничений
-    await queryRunner.query(`
-      INSERT INTO tables (restaurant_id, capacity) VALUES
-        ('323e4567-e89b-12d3-a456-426614174002', 2),
-        ('323e4567-e89b-12d3-a456-426614174002', 2);
-    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TRIGGER IF EXISTS update_bookings_updated_at ON bookings`);
     await queryRunner.query(`DROP FUNCTION IF EXISTS update_updated_at_column()`);
     
-    const bookingsTable = await queryRunner.getTable('bookings');
-    if (bookingsTable) {
-      const foreignKey = bookingsTable.foreignKeys.find(
-        (fk) => fk.columnNames.indexOf('table_id') !== -1,
-      );
-      if (foreignKey) {
-        await queryRunner.dropForeignKey('bookings', foreignKey);
-      }
-    }
-    
     await queryRunner.dropTable('bookings');
     await queryRunner.dropTable('outbox_events');
-    await queryRunner.dropTable('tables');
   }
 }
 

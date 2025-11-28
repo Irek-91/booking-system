@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { DatabaseModule } from '../infrastructure/database/database.module';
-import { TablesModule } from '../infrastructure/database/tables.module';
 import { OutboxModule } from '../infrastructure/outbox/outbox.module';
 import { BookingRepository } from '../infrastructure/database/repositories/booking.repository';
 import {
@@ -14,7 +13,7 @@ import { BookingsController } from '../presentation/controllers/bookings.control
 const handlers = [CreateBookingHandler, GetBookingHandler];
 
 @Module({
-  imports: [CqrsModule, DatabaseModule, TablesModule, OutboxModule],
+  imports: [CqrsModule, DatabaseModule, OutboxModule],
   controllers: [BookingsController],
   providers: [
     ...handlers,

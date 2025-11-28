@@ -1,29 +1,23 @@
-import { RestaurantId } from '../value-objects/restaurant-id.vo';
-
 export class Table {
   private constructor(
     private readonly id: string,
-    private readonly restaurantId: RestaurantId,
+    private readonly restaurantId: string,
     private readonly capacity: number,
   ) {}
-
-  static create(restaurantId: RestaurantId, capacity: number): Table {
-    return new Table('', restaurantId, capacity);
-  }
 
   static fromPersistence(
     id: string,
     restaurantId: string,
     capacity: number,
   ): Table {
-    return new Table(id, RestaurantId.create(restaurantId), capacity);
+    return new Table(id, restaurantId, capacity);
   }
 
   getId(): string {
     return this.id;
   }
 
-  getRestaurantId(): RestaurantId {
+  getRestaurantId(): string {
     return this.restaurantId;
   }
 

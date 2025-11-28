@@ -5,6 +5,10 @@ import {
   IBookingRepository,
   BOOKING_REPOSITORY,
 } from '../interfaces/booking.repository.interface';
+import {
+  ITableRepository,
+  TABLE_REPOSITORY,
+} from '../interfaces/table.repository.interface';
 import { AvailabilityCheckerService } from '../../domain/services/availability-checker.service';
 import { KafkaProducerService } from '../../infrastructure/kafka/kafka-producer.service';
 import { StructuredLoggerService } from '../../infrastructure/logging/structured-logger.service';
@@ -16,6 +20,8 @@ export class BookingCreatedHandler {
   constructor(
     @Inject(BOOKING_REPOSITORY)
     private readonly bookingRepository: IBookingRepository,
+    @Inject(TABLE_REPOSITORY)
+    private readonly tableRepository: ITableRepository,
     private readonly availabilityChecker: AvailabilityCheckerService,
     private readonly kafkaProducer: KafkaProducerService,
     private readonly logger: StructuredLoggerService,
@@ -81,6 +87,56 @@ export class BookingCreatedHandler {
         correlationId,
         status: BookingStatus.CHECKING_AVAILABILITY,
       });
+
+      // Если tableId не указан, выбираем свободный стол
+      if (!booking.getTableId()) {
+        const availableTables = await this.tableRepository.findAvailableTables(
+          booking.getRestaurantId(),
+          booking.getDate(),
+          booking.getTime(),
+          booking.getDuration(),
+          booking.getGuests(),
+          booking.getId(), // Исключаем текущую бронь из проверки
+        );
+
+        if (availableTables.length === 0) {
+          // Нет доступных столов - отклоняем бронь
+          booking.updateStatus(BookingStatus.REJECTED);
+          booking = await this.bookingRepository.save(booking);
+
+          this.logger.logBooking('warn', 'No available tables found, rejecting booking', {
+            bookingId: booking.getId(),
+            correlationId,
+            restaurantId: booking.getRestaurantId(),
+            date: booking.getDate(),
+            time: booking.getTime(),
+            guests: booking.getGuests(),
+            duration: booking.getDuration(),
+          });
+
+          // Публикуем событие об отклонении
+          await this.kafkaProducer.publishBookingStatusUpdated({
+            bookingId: booking.getId(),
+            status: BookingStatus.REJECTED,
+            correlationId,
+          });
+
+          return;
+        }
+
+        // Выбираем первый доступный стол
+        const selectedTable = availableTables[0];
+        booking = booking.withTableId(selectedTable.getId());
+        booking = await this.bookingRepository.save(booking);
+
+        this.logger.logBooking('info', 'Table selected for booking', {
+          bookingId: booking.getId(),
+          correlationId,
+          tableId: selectedTable.getId(),
+          tableCapacity: selectedTable.getCapacity(),
+          guests: booking.getGuests(),
+        });
+      }
 
       // Проверяем доступность
       const newStatus = await this.availabilityChecker.checkAvailability(booking);

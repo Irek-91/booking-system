@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
 import { CreateBookingHandler } from './create-booking.handler';
 import { CreateBookingCommand } from '../commands/create-booking.command';
 import { Booking } from '../../domain/entities/booking.entity';
@@ -13,18 +12,12 @@ import {
   IBookingRepository,
   BOOKING_REPOSITORY,
 } from '../interfaces/booking.repository.interface';
-import {
-  ITableRepository,
-  TABLE_REPOSITORY,
-} from '../interfaces/table.repository.interface';
 import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import { StructuredLoggerService } from '../../infrastructure/logging/structured-logger.service';
-import { Table } from '../../domain/entities/table.entity';
 
 describe('CreateBookingHandler', () => {
   let handler: CreateBookingHandler;
   let mockBookingRepository: jest.Mocked<IBookingRepository>;
-  let mockTableRepository: jest.Mocked<ITableRepository>;
   let mockOutboxService: jest.Mocked<OutboxService>;
   let mockLogger: jest.Mocked<StructuredLoggerService>;
 
@@ -32,12 +25,6 @@ describe('CreateBookingHandler', () => {
     mockBookingRepository = {
       save: jest.fn(),
       findById: jest.fn(),
-    };
-
-    mockTableRepository = {
-      findByRestaurant: jest.fn(),
-      findById: jest.fn(),
-      findAvailableTables: jest.fn(),
     };
 
     mockOutboxService = {
@@ -54,10 +41,6 @@ describe('CreateBookingHandler', () => {
         {
           provide: BOOKING_REPOSITORY,
           useValue: mockBookingRepository,
-        },
-        {
-          provide: TABLE_REPOSITORY,
-          useValue: mockTableRepository,
         },
         {
           provide: OutboxService,
@@ -84,15 +67,7 @@ describe('CreateBookingHandler', () => {
       ...overrides,
     });
 
-    const createMockTable = (id: string, capacity: number): Table => {
-      return {
-        getId: jest.fn().mockReturnValue(id),
-        getCapacity: jest.fn().mockReturnValue(capacity),
-        getRestaurantId: jest.fn(),
-      } as any;
-    };
-
-    const createMockBooking = (): Booking => {
+    const createMockBooking = (tableId: string | null = null): Booking => {
       const restaurantId = RestaurantId.create('123e4567-e89b-12d3-a456-426614174000');
       const date = BookingDate.create('2025-12-25');
       const time = BookingTime.create('19:00');
@@ -104,16 +79,14 @@ describe('CreateBookingHandler', () => {
         time,
         guests,
         BookingDuration.TWO_HOURS,
-        'table-id-123',
+        tableId, // tableId будет null по умолчанию
       );
     };
 
-    it('should create booking successfully when table is available', async () => {
+    it('should create booking successfully without table selection', async () => {
       const command = createCommand();
-      const mockTable = createMockTable('table-id-123', 6);
-      const mockBooking = createMockBooking();
+      const mockBooking = createMockBooking(null); // Бронь создается без tableId
 
-      mockTableRepository.findAvailableTables.mockResolvedValue([mockTable]);
       mockOutboxService.saveEventInTransaction.mockImplementation(
         async (eventType, payload, callback) => {
           if (callback) {
@@ -126,21 +99,17 @@ describe('CreateBookingHandler', () => {
       const result = await handler.execute(command);
 
       expect(result).toBeInstanceOf(Booking);
-      expect(mockTableRepository.findAvailableTables).toHaveBeenCalledWith(
-        expect.any(RestaurantId),
-        expect.any(Date),
-        '19:00',
-        BookingDuration.TWO_HOURS,
-        4,
-      );
+      expect(result.getTableId()).toBeNull(); // tableId должен быть null
       expect(mockOutboxService.saveEventInTransaction).toHaveBeenCalledWith(
         'booking.created',
         expect.objectContaining({
+          bookingId: expect.any(String),
           restaurantId: command.restaurantId,
           date: expect.any(String),
           time: '19:00',
           guests: 4,
           duration: BookingDuration.TWO_HOURS,
+          tableId: null, // tableId должен быть null в событии
           correlationId: command.correlationId,
         }),
         expect.any(Function),
@@ -149,48 +118,10 @@ describe('CreateBookingHandler', () => {
       expect(mockLogger.logBooking).toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException when no tables are available', async () => {
-      const command = createCommand();
-
-      mockTableRepository.findAvailableTables.mockResolvedValue([]);
-
-      await expect(handler.execute(command)).rejects.toThrow(NotFoundException);
-      expect(mockTableRepository.findAvailableTables).toHaveBeenCalled();
-      expect(mockOutboxService.saveEventInTransaction).not.toHaveBeenCalled();
-      expect(mockBookingRepository.save).not.toHaveBeenCalled();
-    });
-
-    it('should select first available table when multiple tables are available', async () => {
-      const command = createCommand();
-      const mockTable1 = createMockTable('table-id-1', 4);
-      const mockTable2 = createMockTable('table-id-2', 6);
-      const mockBooking = createMockBooking();
-
-      mockTableRepository.findAvailableTables.mockResolvedValue([
-        mockTable1,
-        mockTable2,
-      ]);
-      mockOutboxService.saveEventInTransaction.mockImplementation(
-        async (eventType, payload, callback) => {
-          if (callback) {
-            await callback();
-          }
-        },
-      );
-      mockBookingRepository.save.mockResolvedValue(mockBooking);
-
-      await handler.execute(command);
-
-      expect(mockTable1.getId).toHaveBeenCalled();
-      expect(mockTable2.getId).not.toHaveBeenCalled();
-    });
-
     it('should create booking with correct status (CREATED)', async () => {
       const command = createCommand();
-      const mockTable = createMockTable('table-id-123', 6);
-      const mockBooking = createMockBooking();
+      const mockBooking = createMockBooking(null);
 
-      mockTableRepository.findAvailableTables.mockResolvedValue([mockTable]);
       mockOutboxService.saveEventInTransaction.mockImplementation(
         async (eventType, payload, callback) => {
           if (callback) {
@@ -207,10 +138,8 @@ describe('CreateBookingHandler', () => {
 
     it('should use correlationId from command', async () => {
       const command = createCommand({ correlationId: 'custom-correlation-id' });
-      const mockTable = createMockTable('table-id-123', 6);
-      const mockBooking = createMockBooking();
+      const mockBooking = createMockBooking(null);
 
-      mockTableRepository.findAvailableTables.mockResolvedValue([mockTable]);
       mockOutboxService.saveEventInTransaction.mockImplementation(
         async (eventType, payload, callback) => {
           if (callback) {
@@ -234,10 +163,8 @@ describe('CreateBookingHandler', () => {
     it('should use default correlationId when not provided', async () => {
       const command = createCommand();
       delete command.correlationId;
-      const mockTable = createMockTable('table-id-123', 6);
-      const mockBooking = createMockBooking();
+      const mockBooking = createMockBooking(null);
 
-      mockTableRepository.findAvailableTables.mockResolvedValue([mockTable]);
       mockOutboxService.saveEventInTransaction.mockImplementation(
         async (eventType, payload, callback) => {
           if (callback) {
@@ -260,10 +187,8 @@ describe('CreateBookingHandler', () => {
 
     it('should log booking creation', async () => {
       const command = createCommand();
-      const mockTable = createMockTable('table-id-123', 6);
-      const mockBooking = createMockBooking();
+      const mockBooking = createMockBooking(null);
 
-      mockTableRepository.findAvailableTables.mockResolvedValue([mockTable]);
       mockOutboxService.saveEventInTransaction.mockImplementation(
         async (eventType, payload, callback) => {
           if (callback) {

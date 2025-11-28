@@ -113,12 +113,100 @@ export class InitialSchema1700000000000 implements MigrationInterface {
       FOR EACH ROW
       EXECUTE FUNCTION update_updated_at_column();
     `);
+
+    // Создаем таблицу tables
+    await queryRunner.createTable(
+      new Table({
+        name: 'tables',
+        columns: [
+          {
+            name: 'id',
+            type: 'uuid',
+            isPrimary: true,
+            generationStrategy: 'uuid',
+            default: 'uuid_generate_v4()',
+          },
+          {
+            name: 'restaurant_id',
+            type: 'uuid',
+            isNullable: false,
+          },
+          {
+            name: 'capacity',
+            type: 'integer',
+            isNullable: false,
+          },
+          {
+            name: 'created_at',
+            type: 'timestamp',
+            default: 'CURRENT_TIMESTAMP',
+            isNullable: false,
+          },
+          {
+            name: 'updated_at',
+            type: 'timestamp',
+            default: 'CURRENT_TIMESTAMP',
+            isNullable: false,
+          },
+        ],
+        indices: [
+          {
+            name: 'IDX_tables_restaurant_id',
+            columnNames: ['restaurant_id'],
+          },
+        ],
+      }),
+      true,
+    );
+
+    // Создаем триггер для автоматического обновления updated_at для таблицы tables
+    await queryRunner.query(`
+      DROP TRIGGER IF EXISTS update_tables_updated_at ON tables;
+      CREATE TRIGGER update_tables_updated_at
+      BEFORE UPDATE ON tables
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+    `);
+
+    // Добавляем тестовые данные для демонстрации
+    // Ресторан 1: "123e4567-e89b-12d3-a456-426614174000" (используется в примерах)
+    await queryRunner.query(`
+      INSERT INTO tables (restaurant_id, capacity) VALUES
+        ('123e4567-e89b-12d3-a456-426614174000', 2),
+        ('123e4567-e89b-12d3-a456-426614174000', 2),
+        ('123e4567-e89b-12d3-a456-426614174000', 4),
+        ('123e4567-e89b-12d3-a456-426614174000', 4),
+        ('123e4567-e89b-12d3-a456-426614174000', 4),
+        ('123e4567-e89b-12d3-a456-426614174000', 4),
+        ('123e4567-e89b-12d3-a456-426614174000', 6),
+        ('123e4567-e89b-12d3-a456-426614174000', 6),
+        ('123e4567-e89b-12d3-a456-426614174000', 8),
+        ('123e4567-e89b-12d3-a456-426614174000', 8);
+    `);
+
+    // Ресторан 2: для тестирования разных сценариев
+    await queryRunner.query(`
+      INSERT INTO tables (restaurant_id, capacity) VALUES
+        ('223e4567-e89b-12d3-a456-426614174001', 4),
+        ('223e4567-e89b-12d3-a456-426614174001', 4),
+        ('223e4567-e89b-12d3-a456-426614174001', 6),
+        ('223e4567-e89b-12d3-a456-426614174001', 6);
+    `);
+
+    // Ресторан 3: маленький ресторан для тестирования ограничений
+    await queryRunner.query(`
+      INSERT INTO tables (restaurant_id, capacity) VALUES
+        ('323e4567-e89b-12d3-a456-426614174002', 2),
+        ('323e4567-e89b-12d3-a456-426614174002', 2);
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TRIGGER IF EXISTS update_bookings_updated_at ON bookings`);
+    await queryRunner.query(`DROP TRIGGER IF EXISTS update_tables_updated_at ON tables`);
     await queryRunner.query(`DROP FUNCTION IF EXISTS update_updated_at_column()`);
     await queryRunner.dropTable('bookings');
+    await queryRunner.dropTable('tables');
   }
 }
 

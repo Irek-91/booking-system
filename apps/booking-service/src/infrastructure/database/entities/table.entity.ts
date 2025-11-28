@@ -25,3 +25,4 @@ export class TableEntity {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
+

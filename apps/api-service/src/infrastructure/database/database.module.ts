@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BookingEntity } from './entities/booking.entity';
 import { OutboxEventEntity } from './entities/outbox-event.entity';
-import { TableEntity } from './entities/table.entity';
 
 @Module({
   imports: [
@@ -16,7 +15,7 @@ import { TableEntity } from './entities/table.entity';
         username: configService.get<string>('DB_USERNAME', 'postgres'),
         password: configService.get<string>('DB_PASSWORD', 'postgres'),
         database: configService.get<string>('DB_DATABASE', 'api_service'),
-        entities: [BookingEntity, OutboxEventEntity, TableEntity],
+        entities: [BookingEntity, OutboxEventEntity],
         migrations: ['dist/infrastructure/database/migrations/*.js'],
         migrationsRun: configService.get<string>('NODE_ENV') !== 'development',
         synchronize: configService.get<string>('NODE_ENV') === 'development',
@@ -24,7 +23,7 @@ import { TableEntity } from './entities/table.entity';
       }),
       inject: [ConfigService],
     }),
-    TypeOrmModule.forFeature([BookingEntity, OutboxEventEntity, TableEntity]),
+    TypeOrmModule.forFeature([BookingEntity, OutboxEventEntity]),
   ],
   exports: [TypeOrmModule],
 })

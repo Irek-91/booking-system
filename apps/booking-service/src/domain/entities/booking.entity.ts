@@ -46,6 +46,24 @@ export class Booking {
     this.updatedAt = new Date();
   }
 
+  /**
+   * Создает новый объект Booking с обновленным tableId
+   */
+  withTableId(tableId: string): Booking {
+    return new Booking(
+      this.id,
+      this.restaurantId,
+      this.date,
+      this.time,
+      this.guests,
+      this.duration,
+      tableId,
+      this.status,
+      this.createdAt,
+      new Date(), // Обновляем updatedAt
+    );
+  }
+
   getId(): string {
     return this.id;
   }

@@ -1,5 +1,5 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { Inject, NotFoundException } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { CreateBookingCommand } from '../commands/create-booking.command';
 import { Booking } from '../../domain/entities/booking.entity';
 import { RestaurantId } from '../../domain/value-objects/restaurant-id.vo';
@@ -10,10 +10,6 @@ import {
   BOOKING_REPOSITORY,
 } from '../interfaces/booking.repository.interface';
 import type { IBookingRepository } from '../interfaces/booking.repository.interface';
-import {
-  TABLE_REPOSITORY,
-} from '../interfaces/table.repository.interface';
-import type { ITableRepository } from '../interfaces/table.repository.interface';
 import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import { StructuredLoggerService } from '../../infrastructure/logging/structured-logger.service';
 
@@ -24,8 +20,6 @@ export class CreateBookingHandler
   constructor(
     @Inject(BOOKING_REPOSITORY)
     private readonly bookingRepository: IBookingRepository,
-    @Inject(TABLE_REPOSITORY)
-    private readonly tableRepository: ITableRepository,
     private readonly outboxService: OutboxService,
     private readonly logger: StructuredLoggerService,
   ) {}
@@ -47,53 +41,15 @@ export class CreateBookingHandler
     const time = BookingTime.create(command.time);
     const guests = GuestsCount.create(command.guests);
 
-    // Находим свободный стол для брони
-    const availableTables = await this.tableRepository.findAvailableTables(
-      restaurantId,
-      date.toDate(),
-      time.toString(),
-      command.duration,
-      guests.toNumber(),
-    );
-
-    if (availableTables.length === 0) {
-      this.logger.logBooking('warn', 'No available tables found', {
-        correlationId,
-        restaurantId: command.restaurantId,
-        date: command.date,
-        time: command.time,
-        guests: command.guests,
-        duration: command.duration,
-      });
-      throw new NotFoundException({
-        message: [
-          {
-            message: 'No available tables found for the specified time',
-            field: 'time',
-          },
-        ],
-      });
-    }
-
-    // Выбираем первый доступный стол
-    const selectedTable = availableTables[0];
-    const tableId = selectedTable.getId();
-
-    this.logger.logBooking('info', 'Table selected for booking', {
-      correlationId,
-      restaurantId: command.restaurantId,
-      tableId,
-      tableCapacity: selectedTable.getCapacity(),
-      guests: command.guests,
-    });
-
+    // Создаем бронь БЕЗ проверки доступности и БЕЗ tableId
+    // Проверка доступности и выбор стола будут выполнены асинхронно в Booking Service
     const booking = Booking.create(
       restaurantId,
       date,
       time,
       guests,
       command.duration,
-      tableId,
+      null, // tableId будет назначен в Booking Service после проверки доступности
     );
     let savedBooking: Booking;
 
@@ -107,7 +63,7 @@ export class CreateBookingHandler
         time: booking.getTime().toString(),
         guests: booking.getGuests().toNumber(),
         duration: booking.getDuration(),
-        tableId,
+        tableId: null, // Будет назначен в Booking Service
         correlationId,
       },
       async () => {
