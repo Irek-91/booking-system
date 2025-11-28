@@ -14,7 +14,7 @@
     "start:booking": "cd apps/booking-service && npm run start:dev",
     "start:api:prod": "cd apps/api-service && npm run start:prod",
     "start:booking:prod": "cd apps/booking-service && npm run start:prod",
-    "test": "npm run test --workspaces",
+    "test": "npm run test --workspace=api-service --workspace=booking-service",
     "test:api": "cd apps/api-service && npm run test",
     "test:booking": "cd apps/booking-service && npm run test",
     "lint": "eslint \"{apps,packages}/**/*.ts\" --fix",
