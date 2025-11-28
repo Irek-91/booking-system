@@ -157,7 +157,7 @@ services:
       DB_DATABASE: booking_service
       KAFKA_BROKERS: kafka:29092
       KAFKA_CLIENT_ID: booking-service
-      KAFKA_GROUP_ID: booking-service-consumer
+      KAFKA_CONSUMER_GROUP_ID: booking-service-consumer
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: ${LOG_FORMAT:-json}
       SERVICE_NAME: booking-service
