@@ -140,3 +140,26 @@ curl http://localhost:3000/bookings/91e939e9-0ab6-4bfa-a22e-768d1e49c436 \
 curl http://localhost:3000/health  # API Service
 curl http://localhost:3001/health  # Booking Service
 ```
+
+### End-to-End тестирование
+
+Для проверки работы всей системы end-to-end:
+
+```bash
+# Из корня проекта
+npm run test:e2e
+
+# Или напрямую из API Service
+cd apps/api-service
+npm run test:e2e
+```
+
+E2E тест проверяет:
+1. Создание брони через API Service со статусом `CREATED` и `tableId = null`
+2. Асинхронную обработку события в Booking Service
+3. Обновление статуса брони на `CONFIRMED` или `REJECTED`
+4. Назначение `tableId` при подтверждении
+5. Идемпотентность запросов
+6. Валидацию входных данных
+
+Подробнее см. [docs/E2E_TESTING.md](./docs/E2E_TESTING.md)
