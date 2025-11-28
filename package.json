@@ -1,0 +1,43 @@
+{
+  "name": "booking-system",
+  "version": "0.0.1",
+  "description": "Booking System - Event-driven microservices architecture",
+  "author": "",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "npm run build:shared && npm run build --workspaces",
+    "build:shared": "cd packages/shared && npm run build",
+    "build:api": "cd apps/api-service && npm run build",
+    "build:booking": "cd apps/booking-service && npm run build",
+    "start:api": "cd apps/api-service && npm run start:dev",
+    "start:booking": "cd apps/booking-service && npm run start:dev",
+    "start:api:prod": "cd apps/api-service && npm run start:prod",
+    "start:booking:prod": "cd apps/booking-service && npm run start:prod",
+    "test": "npm run test --workspaces",
+    "test:api": "cd apps/api-service && npm run test",
+    "test:booking": "cd apps/booking-service && npm run test",
+    "lint": "eslint \"{apps,packages}/**/*.ts\" --fix",
+    "format": "prettier --write \"{apps,packages}/**/*.ts\"",
+    "format:check": "prettier --check \"{apps,packages}/**/*.ts\""
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
+    "@eslint/js": "^9.18.0",
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@types/node": "^22.10.7",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.2",
+    "globals": "^16.0.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
+  },
+  "dependencies": {}
+}

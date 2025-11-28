@@ -1,0 +1,28 @@
+-- Инициализация баз данных для микросервисов Booking System
+-- Этот скрипт выполняется автоматически при первом запуске PostgreSQL контейнера
+-- и создает отдельные базы данных для каждого микросервиса:
+--   - api_service: база данных для API Service
+--   - booking_service: база данных для Booking Service
+
+-- Создание базы данных для API Service (если не существует)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'api_service') THEN
+    CREATE DATABASE api_service;
+  END IF;
+END
+$$;
+
+-- Создание базы данных для Booking Service (если не существует)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'booking_service') THEN
+    CREATE DATABASE booking_service;
+  END IF;
+END
+$$;
+
+-- Предоставление всех прав пользователю postgres на обе базы данных
+GRANT ALL PRIVILEGES ON DATABASE api_service TO postgres;
+GRANT ALL PRIVILEGES ON DATABASE booking_service TO postgres;
+
