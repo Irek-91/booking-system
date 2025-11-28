@@ -29,8 +29,6 @@ cd ../../infrastructure
 docker-compose ps
 ```
 
-Все сервисы должны быть в статусе `Up` и `healthy`.
-
 Если инфраструктура не запущена:
 
 ```bash
@@ -41,7 +39,7 @@ docker-compose up -d
 
 ### 2. Настройте переменные окружения
 
-#### Для локального запуска (рекомендуется для разработки):
+#### Для локального запуска:
 
 Если вы запускаете API Service локально (не в Docker), используйте `localhost` для подключения к сервисам:
 
@@ -151,20 +149,6 @@ curl -X POST http://localhost:3000/bookings \
     "time": "18:00",
     "guests": 6,
     "duration": 3
-  }'
-```
-
-Бронь на 4 часа:
-```bash
-curl -X POST http://localhost:3000/bookings \
-  -H "Content-Type: application/json" \
-  -H "X-Correlation-Id: test-123" \
-  -d '{
-    "restaurantId": "123e4567-e89b-12d3-a456-426614174000",
-    "date": "2025-12-01",
-    "time": "17:00",
-    "guests": 8,
-    "duration": 4
   }'
 ```
 
@@ -343,21 +327,6 @@ curl http://localhost:3000/bookings/91e939e9-0ab6-4bfa-a22e-768d1e49c436 \
 
 ## Структура базы данных
 
-### Таблица `tables`
-Хранит информацию о столах в ресторанах:
-
-```sql
-CREATE TABLE tables (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  restaurant_id UUID NOT NULL,
-  capacity INTEGER NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IDX_tables_restaurant_id ON tables(restaurant_id);
-```
-
 **Тестовые данные:**
 При выполнении миграции автоматически создаются тестовые данные для трех ресторанов:
 
@@ -366,29 +335,6 @@ CREATE INDEX IDX_tables_restaurant_id ON tables(restaurant_id);
 - **Ресторан 3** (`323e4567-e89b-12d3-a456-426614174002`): 2 стола (2×2 места)
 
 Эти данные используются в примерах API запросов и позволяют сразу тестировать систему без дополнительной настройки.
-
-### Таблица `bookings`
-Хранит информацию о бронях. Поле `table_id` содержит ID стола, закрепленного за бронь:
-
-```sql
-CREATE TABLE bookings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  restaurant_id UUID NOT NULL,
-  date DATE NOT NULL,
-  time TIME NOT NULL,
-  guests INTEGER NOT NULL,
-  duration INTEGER NOT NULL DEFAULT 1,
-  table_id UUID, -- Ссылка на стол, закрепленный за бронь
-  status VARCHAR(50) NOT NULL DEFAULT 'CREATED',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IDX_bookings_restaurant_id ON bookings(restaurant_id);
-CREATE INDEX IDX_bookings_table_id ON bookings(table_id);
-```
-
-**Примечание:** Поле `table_id` может быть `NULL` для обратной совместимости, но при создании новой брони система автоматически назначает свободный стол.
 
 ## Структура проекта
 
@@ -419,40 +365,6 @@ CREATE INDEX IDX_bookings_table_id ON bookings(table_id);
 
 3. Если свободных столов нет:
    - Бронь не создается, возвращается ошибка 404 с сообщением "No available tables found for the specified time"
-
-**Примеры сценариев:**
-
-**Сценарий 1: Успешная бронь**
-- Ресторан: 5 столов по 4 места, 3 стола по 6 мест
-- Существующие брони: нет
-- Новая бронь: 4 гостя, 19:00 на 2 часа (19:00 - 21:00)
-- Система выбирает: стол на 4 места (tableId: "table-1")
-- Результат: `CONFIRMED` ✅
-
-**Сценарий 2: Конфликт - стол занят на пересекающееся время**
-- Ресторан: 5 столов по 4 места
-- Существующая бронь: стол "table-1", 19:00 - 21:00 (duration = 2 часа)
-- Новая бронь: 4 гостя, 20:00 на 2 часа (20:00 - 22:00)
-- Система выбирает: стол "table-1" (единственный подходящий)
-- Результат: `REJECTED` ❌ (стол "table-1" занят с 20:00 до 21:00)
-
-**Сценарий 3: Успешная бронь - другой стол свободен**
-- Ресторан: 5 столов по 4 места
-- Существующая бронь: стол "table-1", 19:00 - 21:00
-- Новая бронь: 4 гостя, 20:00 на 2 часа (20:00 - 22:00)
-- Система выбирает: стол "table-2" (свободен на это время)
-- Результат: `CONFIRMED` ✅
-
-**Сценарий 4: Нет подходящих столов по вместимости**
-- Ресторан: только столы по 2 места
-- Новая бронь: 4 гостя, 19:00 на 2 часа
-- Результат: `404 Not Found` ❌ ("No available tables found")
-
-**Сценарий 5: Нет свободных столов на это время**
-- Ресторан: 2 стола по 4 места
-- Существующие брони: оба стола заняты на 19:00 - 21:00
-- Новая бронь: 4 гостя, 19:00 на 2 часа
-- Результат: `404 Not Found` ❌ ("No available tables found")
 
 ## Логирование
 
