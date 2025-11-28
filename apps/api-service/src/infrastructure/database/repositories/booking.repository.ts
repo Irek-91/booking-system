@@ -6,11 +6,6 @@ import { Booking } from '../../../domain/entities/booking.entity';
 import {
   IBookingRepository,
 } from '../../../application/interfaces/booking.repository.interface';
-import { RestaurantId } from '../../../domain/value-objects/restaurant-id.vo';
-import { BookingDate } from '../../../domain/value-objects/booking-date.vo';
-import { BookingTime } from '../../../domain/value-objects/booking-time.vo';
-import { BookingDuration } from '../../../domain/value-objects/booking-duration.enum';
-import { BookingStatus } from '../../../domain/entities/booking-status.enum';
 
 @Injectable()
 export class BookingRepository implements IBookingRepository {
@@ -31,46 +26,6 @@ export class BookingRepository implements IBookingRepository {
       return null;
     }
     return this.toDomain(entity);
-  }
-
-  async findByRestaurantDateAndTimeRange(
-    restaurantId: RestaurantId,
-    date: BookingDate,
-    startTime: BookingTime,
-    duration: BookingDuration,
-  ): Promise<Booking[]> {
-    const dateValue = date.toDate();
-    const startTimeStr = startTime.toString();
-    
-    // Вычисляем время окончания
-    const [hours, minutes] = startTimeStr.split(':').map(Number);
-    const startDateTime = new Date(dateValue);
-    startDateTime.setHours(hours, minutes, 0, 0);
-    const endDateTime = new Date(startDateTime);
-    endDateTime.setHours(endDateTime.getHours() + duration);
-
-    // Находим все брони для этого ресторана и даты
-    const entities = await this.repository.find({
-      where: {
-        restaurantId: restaurantId.toString(),
-        date: dateValue,
-        status: BookingStatus.CONFIRMED, // Только подтвержденные брони
-      },
-    });
-
-    // Фильтруем брони, которые пересекаются с заданным временным интервалом
-    const conflictingBookings = entities.filter((entity) => {
-      const [entityHours, entityMinutes] = entity.time.split(':').map(Number);
-      const entityStart = new Date(dateValue);
-      entityStart.setHours(entityHours, entityMinutes, 0, 0);
-      const entityEnd = new Date(entityStart);
-      entityEnd.setHours(entityEnd.getHours() + entity.duration);
-
-      // Проверяем пересечение: start < otherEnd && otherStart < end
-      return startDateTime < entityEnd && entityStart < endDateTime;
-    });
-
-    return conflictingBookings.map((entity) => this.toDomain(entity));
   }
 
   private toEntity(booking: Booking): BookingEntity {
